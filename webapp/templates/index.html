@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HiringCafe Scraper</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #181b25;
+    --card-border: #262a38;
+    --text: #e8eaf2;
+    --muted: #8b90a5;
+    --accent: #7c6cf5;
+    --accent-hover: #8f7eff;
+    --green: #4ade80;
+    --red: #f87171;
+    --input-bg: #10131c;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 20px 60px;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.4px; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); margin-top: 6px; font-size: 14px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid, .grid-3 { grid-template-columns: 1fr; } }
+
+  label.field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 10px 12px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+
+  .field { margin-bottom: 16px; }
+
+  .pill-group { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill {
+    border: 1px solid var(--card-border);
+    background: var(--input-bg);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 13px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.12s;
+  }
+  .pill.active {
+    background: rgba(124, 108, 245, 0.16);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+
+  button.primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 9px;
+    padding: 12px 26px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button.primary:hover { opacity: 0.9; }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  #statusCard { display: none; }
+  .status-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .spinner {
+    width: 18px; height: 18px;
+    border: 3px solid var(--card-border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .stat { font-size: 14px; color: var(--muted); }
+  .stat b { color: var(--text); font-size: 16px; }
+  .status-done { color: var(--green); font-weight: 600; }
+  .status-error { color: var(--red); font-weight: 600; }
+
+  .downloads { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .downloads a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 13px;
+    border: 1px solid var(--accent);
+    border-radius: 7px;
+    padding: 7px 14px;
+    transition: background 0.15s;
+  }
+  .downloads a:hover { background: rgba(124, 108, 245, 0.14); }
+
+  #resultsCard { display: none; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--card-border); }
+  th { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; position: sticky; top: 0; background: var(--card); }
+  td { color: var(--text); max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  td a { color: var(--accent); text-decoration: none; }
+  td a:hover { text-decoration: underline; }
+  .salary { color: var(--green); }
+  .count-note { color: var(--muted); font-size: 13px; margin-bottom: 12px; }
+  .warn { color: #fbbf24; font-size: 13px; margin-top: 8px; }
+
+  #validationCard { display: none; }
+  .vq-header { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+  .vq-header h2 { font-size: 16px; font-weight: 700; }
+  .vq-score { font-size: 26px; font-weight: 800; }
+  .vq-score.good { color: var(--green); }
+  .vq-score.mid { color: #fbbf24; }
+  .vq-score.bad { color: var(--red); }
+  .vq-sub { color: var(--muted); font-size: 13px; }
+  .vq-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  .vq-check {
+    background: var(--input-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .vq-check .name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 6px; }
+  .vq-check .rate { font-size: 18px; font-weight: 700; }
+  .vq-check .detail { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .vq-check .bar { height: 5px; border-radius: 3px; background: var(--card-border); margin-top: 8px; overflow: hidden; }
+  .vq-check .bar > div { height: 100%; border-radius: 3px; background: var(--green); }
+  .vq-check.skipped { opacity: 0.45; }
+  tr.mismatch td { background: rgba(248, 113, 113, 0.07); }
+  .match-badge { font-size: 15px; cursor: default; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Hiring<span>Cafe</span> Scraper</h1>
+    <p>Search HiringCafe's live job index and export results to JSON / Excel / CSV.</p>
+  </header>
+
+  <div class="card">
+    <div class="grid">
+      <div class="field">
+        <label class="field-label" for="query">Search query</label>
+        <input type="text" id="query" placeholder='e.g. "software engineer"'>
+      </div>
+      <div class="field">
+        <label class="field-label" for="location">Location (country / state / city)</label>
+        <input type="text" id="location" placeholder='e.g. "India", "California", "Chicago" — empty = worldwide'>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Workplace type</label>
+      <div class="pill-group" id="workplacePills">
+        {% for w in workplace_types %}<div class="pill" data-value="{{ w }}">{{ w }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Seniority</label>
+      <div class="pill-group" id="seniorityPills">
+        {% for s in seniority_levels %}<div class="pill" data-value="{{ s }}">{{ s }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-label">Commitment</label>
+      <div class="pill-group" id="commitmentPills">
+        {% for c in commitment_types %}<div class="pill" data-value="{{ c }}">{{ c }}</div>{% endfor %}
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="field">
+        <label class="field-label" for="maxPages">Max pages (~100-160 jobs each)</label>
+        <input type="number" id="maxPages" value="3" min="1" max="100">
+      </div>
+      <div class="field">
+        <label class="field-label" for="daysOld">Freshness (days, optional)</label>
+        <input type="number" id="daysOld" placeholder="e.g. 30" min="1">
+      </div>
+      <div class="field">
+        <label class="field-label" for="sort">Sort by</label>
+        <select id="sort">
+          <option value="date">Date (newest first)</option>
+          <option value="default">Relevance</option>
+        </select>
+      </div>
+    </div>
+
+    <button class="primary" id="startBtn">Start scrape</button>
+  </div>
+
+  <div class="card" id="statusCard">
+    <div class="status-row" id="statusRow">
+      <div class="spinner" id="spinner"></div>
+      <span class="stat" id="statusText">Starting…</span>
+      <span class="stat">Pages: <b id="statPages">0</b></span>
+      <span class="stat">Jobs collected: <b id="statJobs">0</b></span>
+      <span class="stat">Total matching: <b id="statTotal">–</b></span>
+    </div>
+    <div class="warn" id="capWarn" style="display:none">
+      This search matches more jobs than HiringCafe's ~10,000-result pagination window can reach.
+      Narrow the search (location, freshness, more specific query) and run multiple slices for full coverage.
+    </div>
+    <div class="downloads" id="downloads"></div>
+  </div>
+
+  <div class="card" id="validationCard">
+    <div class="vq-header">
+      <h2>Data quality</h2>
+      <span class="vq-score" id="vqScore">–</span>
+      <span class="vq-sub" id="vqSub"></span>
+    </div>
+    <div class="vq-grid" id="vqGrid"></div>
+  </div>
+
+  <div class="card" id="resultsCard">
+    <div class="count-note" id="previewNote"></div>
+    <table>
+      <thead>
+        <tr>
+          <th title="Filter match">✓</th>
+          <th>#</th><th>Title</th><th>Company</th><th>Location</th>
+          <th>Workplace</th><th>Seniority</th><th>Salary (yr)</th><th>Published</th><th>Apply</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  function setupPills(id) {
+    const group = document.getElementById(id);
+    group.addEventListener('click', (e) => {
+      if (e.target.classList.contains('pill')) e.target.classList.toggle('active');
+    });
+    return () => [...group.querySelectorAll('.pill.active')].map(p => p.dataset.value);
+  }
+  const getWorkplace = setupPills('workplacePills');
+  const getSeniority = setupPills('seniorityPills');
+  const getCommitment = setupPills('commitmentPills');
+
+  const startBtn = document.getElementById('startBtn');
+  let pollTimer = null;
+
+  startBtn.addEventListener('click', async () => {
+    startBtn.disabled = true;
+    startBtn.textContent = 'Scraping…';
+    document.getElementById('statusCard').style.display = 'block';
+    document.getElementById('resultsCard').style.display = 'none';
+    document.getElementById('validationCard').style.display = 'none';
+    document.getElementById('downloads').innerHTML = '';
+    document.getElementById('capWarn').style.display = 'none';
+    document.getElementById('spinner').style.display = 'block';
+    setStatus('Starting…', '');
+
+    const body = {
+      query: document.getElementById('query').value,
+      location: document.getElementById('location').value,
+      workplace: getWorkplace(),
+      seniority: getSeniority(),
+      commitment: getCommitment(),
+      max_pages: document.getElementById('maxPages').value,
+      days_old: document.getElementById('daysOld').value,
+      sort: document.getElementById('sort').value,
+    };
+
+    try {
+      const res = await fetch('/api/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      poll(data.job_id);
+    } catch (err) {
+      setStatus('Failed to start: ' + err, 'status-error');
+      finish();
+    }
+  });
+
+  function setStatus(text, cls) {
+    const el = document.getElementById('statusText');
+    el.textContent = text;
+    el.className = 'stat ' + (cls || '');
+  }
+
+  function finish() {
+    startBtn.disabled = false;
+    startBtn.textContent = 'Start scrape';
+    document.getElementById('spinner').style.display = 'none';
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  function poll(jobId) {
+    pollTimer = setInterval(async () => {
+      let s;
+      try {
+        const res = await fetch('/api/status/' + jobId);
+        s = await res.json();
+      } catch { return; }
+
+      document.getElementById('statPages').textContent = s.pages_fetched;
+      document.getElementById('statJobs').textContent = s.jobs_collected;
+      if (s.total_count !== null) {
+        document.getElementById('statTotal').textContent = s.total_count.toLocaleString();
+        if (s.total_count > 10000) document.getElementById('capWarn').style.display = 'block';
+      }
+
+      if (s.status === 'scraping' || s.status === 'starting') {
+        setStatus(s.status === 'starting' ? 'Starting…' : 'Scraping…', '');
+      } else if (s.status === 'done') {
+        setStatus('Done — ' + s.jobs_collected + ' unique jobs collected', 'status-done');
+        renderDownloads(s.files);
+        renderValidation(s.validation);
+        renderResults(s.preview, s.jobs_collected);
+        finish();
+      } else if (s.status === 'error') {
+        setStatus('Error: ' + s.error, 'status-error');
+        finish();
+      }
+    }, 1200);
+  }
+
+  function renderDownloads(files) {
+    const wrap = document.getElementById('downloads');
+    wrap.innerHTML = files.map(f =>
+      `<a href="/api/download/${encodeURIComponent(f)}">Download ${f.split('.').pop().toUpperCase()} — ${f}</a>`
+    ).join('');
+  }
+
+  function fmtSalary(row) {
+    const min = row.salary_min_yearly, max = row.salary_max_yearly;
+    if (!min && !max) return '';
+    const cur = row.salary_currency || '';
+    const fmt = (v) => Number(v) >= 1000 ? Math.round(Number(v) / 1000) + 'k' : v;
+    if (min && max) return `${cur} ${fmt(min)}–${fmt(max)}`;
+    return `${cur} ${fmt(min || max)}`;
+  }
+
+  const CHECK_LABELS = {
+    workplace: 'Workplace',
+    seniority: 'Seniority',
+    commitment: 'Commitment',
+    location: 'Location',
+    query_relevance: 'Query relevance',
+  };
+
+  function renderValidation(v) {
+    const card = document.getElementById('validationCard');
+    if (!v) { card.style.display = 'none'; return; }
+
+    const score = document.getElementById('vqScore');
+    score.textContent = v.exact_match_rate + '%';
+    score.className = 'vq-score ' +
+      (v.exact_match_rate >= 95 ? 'good' : v.exact_match_rate >= 80 ? 'mid' : 'bad');
+    document.getElementById('vqSub').textContent =
+      `${v.exact_match_count} of ${v.total_jobs} jobs exactly match your filters` +
+      (v.mismatch_count ? ` — ${v.mismatch_count} mismatched` : '') +
+      (v.warning_count ? `, ${v.warning_count} with soft warnings` : '');
+
+    const grid = document.getElementById('vqGrid');
+    grid.innerHTML = Object.entries(v.checks).map(([name, c]) => {
+      if (!c.checked) {
+        return `<div class="vq-check skipped">
+          <div class="name">${CHECK_LABELS[name] || name}</div>
+          <div class="rate">–</div>
+          <div class="detail">no filter set</div>
+        </div>`;
+      }
+      const total = c.passed + c.failed;
+      const rate = total ? Math.round(c.passed / total * 1000) / 10 : 100;
+      return `<div class="vq-check">
+        <div class="name">${CHECK_LABELS[name] || name}</div>
+        <div class="rate">${rate}%</div>
+        <div class="detail">${c.passed}/${total} passed</div>
+        <div class="bar"><div style="width:${rate}%"></div></div>
+      </div>`;
+    }).join('');
+    card.style.display = 'block';
+  }
+
+  function renderResults(preview, totalCollected) {
+    const tbody = document.getElementById('resultsBody');
+    document.getElementById('previewNote').textContent =
+      `Showing first ${preview.length} of ${totalCollected} collected jobs. ` +
+      `Rows marked ✕ don't match all your filters (hover the mark for details). ` +
+      `Full data + validation columns in the download files.`;
+    tbody.innerHTML = preview.map((r, i) => {
+      const isMatch = r.filter_match !== false && r.filter_match !== 'False';
+      const issues = r.validation_issues || '';
+      const badge = isMatch
+        ? (issues
+            ? `<span class="match-badge" title="${escapeHtml(issues)}">⚠️</span>`
+            : `<span class="match-badge" style="color:var(--green)" title="Matches all filters">✓</span>`)
+        : `<span class="match-badge" style="color:var(--red)" title="${escapeHtml(issues)}">✕</span>`;
+      return `
+      <tr${isMatch ? '' : ' class="mismatch"'}>
+        <td>${badge}</td>
+        <td>${i + 1}</td>
+        <td title="${escapeHtml(r.title)}">${escapeHtml(r.title)}</td>
+        <td title="${escapeHtml(r.company)}">${escapeHtml(r.company)}</td>
+        <td title="${escapeHtml(r.location)}">${escapeHtml(r.location)}</td>
+        <td>${escapeHtml(r.workplace_type)}</td>
+        <td>${escapeHtml(r.seniority_level)}</td>
+        <td class="salary">${fmtSalary(r)}</td>
+        <td>${(r.published_at || '').slice(0, 10)}</td>
+        <td>${r.apply_url ? `<a href="${encodeURI(r.apply_url)}" target="_blank" rel="noopener">Apply ↗</a>` : ''}</td>
+      </tr>`;
+    }).join('');
+    document.getElementById('resultsCard').style.display = 'block';
+  }
+
+  function escapeHtml(v) {
+    return String(v ?? '').replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+</script>
+</body>
+</html>

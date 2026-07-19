@@ -1,0 +1,19 @@
+# Environments & secrets
+.venv/
+venv/
+
+# Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# Scrape output
+results/
+
+# OS / editor
+.DS_Store
+.idea/
+config.bat
+node_modules

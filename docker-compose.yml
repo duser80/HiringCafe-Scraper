@@ -1,0 +1,80 @@
+name: hiringcafe-api
+
+services:
+  postgres:
+    image: postgres:16.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hiringcafe
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: hiringcafe
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Localhost-only, for running integration tests / psql from the host.
+      - "127.0.0.1:5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hiringcafe -d hiringcafe"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      # Localhost-only, for running integration tests from the host.
+      - "127.0.0.1:6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      ENV: ${ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: postgresql+asyncpg://hiringcafe:${POSTGRES_PASSWORD}@postgres:5432/hiringcafe
+      REDIS_URL: redis://redis:6379/0
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN in .env}
+      DEFAULT_RATE_LIMIT_PER_MINUTE: ${DEFAULT_RATE_LIMIT_PER_MINUTE:-120}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "service.worker.scheduler"]
+    environment:
+      ENV: ${ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      DATABASE_URL: postgresql+asyncpg://hiringcafe:${POSTGRES_PASSWORD}@postgres:5432/hiringcafe
+      REDIS_URL: redis://redis:6379/0
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      SCRAPE_INTERVAL_MINUTES: ${SCRAPE_INTERVAL_MINUTES:-180}
+      SCRAPE_MAX_PAGES_PER_SLICE: ${SCRAPE_MAX_PAGES_PER_SLICE:-60}
+      SCRAPE_DELAY_SECONDS: ${SCRAPE_DELAY_SECONDS:-1.0}
+      DEACTIVATE_AFTER_DAYS: ${DEACTIVATE_AFTER_DAYS:-14}
+      SLICES_JSON: ${SLICES_JSON:-}
+      PROXY_URL: ${PROXY_URL:-}
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:

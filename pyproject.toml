@@ -1,0 +1,24 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = [".venv", "results", "service/alembic/versions"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line length handled pragmatically; long strings in scrapers are fine
+    "B008",  # FastAPI dependency injection uses Depends()/Query() in defaults by design
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic env imports models for metadata side effects
+"service/alembic/env.py" = ["E402"]
+# webapp adjusts sys.path before importing the scraper package
+"webapp/app.py" = ["E402"]
